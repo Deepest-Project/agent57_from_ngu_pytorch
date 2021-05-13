@@ -21,6 +21,9 @@ class Config:
     random_seed: int
     enable_ngu: bool
     hidden_size: int
+    L: float
+    beta: float
+
 
 
 config = Config(
@@ -42,4 +45,6 @@ config = Config(
     random_seed=42,
     enable_ngu=True,
     hidden_size=16,
+    L=5.0,
+    beta=0.3
 )

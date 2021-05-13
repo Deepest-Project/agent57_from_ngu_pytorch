@@ -6,13 +6,13 @@ from gym import Wrapper
 from gym_maze.envs.maze_env import MazeEnvSample5x5
 
 from config import config
-from embedding_model import EmbeddingModel, compute_intrinsic_reward
+from embedding_model import EmbeddingModel, GFunction, compute_intrinsic_reward
 from memory import Memory, LocalBuffer
 from model import R2D2
 
 
-def get_action(state, target_net, epsilon, env, hidden):
-    action, hidden = target_net.get_action(state, hidden)
+def get_action(state, target_net, epsilon, env, hidden, beta):
+    action, hidden = target_net.get_action(state, hidden, beta)
 
     if np.random.rand() <= epsilon:
         return env.action_space.sample(), hidden
@@ -58,6 +58,9 @@ def main():
     embedding_model = EmbeddingModel(obs_size=num_inputs, num_outputs=num_actions)
     embedding_loss = 0
 
+    current_g_model = GFunction(obs_size=num_inputs)
+    target_g_model = GFunction(obs_size=num_inputs)
+
     optimizer = optim.Adam(online_net.parameters(), lr=config.lr)
 
     online_net.to(config.device)
@@ -87,11 +90,12 @@ def main():
 
         episode_steps = 0
         horizon = 100
+        MA = 0
         while not done:
             steps += 1
             episode_steps += 1
 
-            action, new_hidden = get_action(state, target_net, epsilon, env, hidden)
+            action, new_hidden = get_action(state, target_net, epsilon, env, hidden, beta=config.beta)
 
             next_state, env_reward, done, _ = env.step(action)
             next_state = torch.Tensor(next_state)
@@ -99,18 +103,28 @@ def main():
             augmented_reward = env_reward
             if config.enable_ngu:
                 next_state_emb = embedding_model.embedding(next_state)
-                intrinsic_reward = compute_intrinsic_reward(episodic_memory, next_state_emb)
+
+                c_out = current_g_model(next_state)
+                alpha = target_g_model.train_model(c_out, next_state)
+
+
+                intrinsic_reward, MA = compute_intrinsic_reward(episodic_memory, next_state_emb, alpha=alpha, episode_steps=episode_steps, MA=MA)
+
+
+
                 episodic_memory.append(next_state_emb)
-                beta = 0.0001
+                beta = config.beta
                 augmented_reward = env_reward + beta * intrinsic_reward
 
             mask = 0 if done else 1
 
             local_buffer.push(state, next_state, action, augmented_reward, mask, hidden)
             hidden = new_hidden
+
+            #todo :get_td_error 할 때 config.beta가 아니라 beta 가변적으로 받을 수 있도록
             if len(local_buffer.memory) == config.local_mini_batch:
                 batch, lengths = local_buffer.sample()
-                td_error = R2D2.get_td_error(online_net, target_net, batch, lengths)
+                td_error = R2D2.get_td_error(online_net, target_net, batch, lengths, config.beta)
                 memory.push(td_error, batch, lengths)
 
             sum_reward += env_reward
@@ -122,7 +136,7 @@ def main():
                 epsilon = max(epsilon, 0.4)
 
                 batch, indexes, lengths = memory.sample(config.batch_size)
-                loss, td_error = R2D2.train_model(online_net, target_net, optimizer, batch, lengths)
+                loss, td_error = R2D2.train_model(online_net, target_net, optimizer, batch, lengths, config.beta)
 
                 if config.enable_ngu:
                     embedding_loss = embedding_model.train_model(batch)

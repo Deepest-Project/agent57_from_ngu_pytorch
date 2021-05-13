@@ -47,6 +47,29 @@ class EmbeddingModel(nn.Module):
         self.optimizer.step()
         return loss.item()
 
+class GFunction(nn.Module):
+    def __init__(self, obs_size, num_outputs=128):
+        super().__init__()
+        self.obs_size = obs_size
+        self.num_outputs = num_outputs
+
+        self.fc1 = nn.Linear(obs_size, 32)
+        self.fc2 = nn.Linear(32, 32)
+        self.last = nn.Linear(32, num_outputs)
+
+        self.optimizer = optim.Adam(self.parameters(), lr=1e-5)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.last(x)
+        return x
+
+    def train_model(self, c_out, next_state):
+        loss = nn.MSELoss()(c_out, self.forward(next_state))
+        loss.backward()
+        self.optimizer.step()
+        return loss.item()
 
 def compute_intrinsic_reward(
     episodic_memory: List,
@@ -56,6 +79,9 @@ def compute_intrinsic_reward(
     kernel_epsilon=0.0001,
     c=0.001,
     sm=8,
+    alpha=None,
+    episode_steps=-1,
+    MA=None
 ) -> float:
     state_dist = [(c_state, torch.dist(c_state, current_c_state)) for c_state in episodic_memory]
     state_dist.sort(key=lambda x: x[1])
@@ -67,9 +93,11 @@ def compute_intrinsic_reward(
     dist = dist / np.mean(dist)
 
     dist = np.max(dist - kernel_cluster_distance, 0)
-    kernel = kernel_epsilon / (dist + kernel_epsilon)
+    kernel = kernel_epsilon / (dist / MA + kernel_epsilon)
     s = np.sqrt(np.sum(kernel)) + c
 
+    MA = (MA * episode_steps + dist) / (episode_steps + 1)
+
     if np.isnan(s) or s > sm:
-        return 0
-    return 1 / s
+        return 0, MA
+    return (1 / s) * min(max(alpha, 1), config.L), MA# return : repisodict·min{max{αt,1},L}
