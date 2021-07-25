@@ -23,6 +23,9 @@ class Config:
     hidden_size: int
     L: float
     beta: float
+    n_actors: int
+    eps: float
+    alpha: int
 
 
 
@@ -46,5 +49,8 @@ config = Config(
     enable_ngu=True,
     hidden_size=16,
     L=5.0,
-    beta=0.3
+    beta=0.3,
+    n_actors=2,
+    eps=0.4,
+    alpha=8
 )
