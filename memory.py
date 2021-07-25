@@ -190,5 +190,5 @@ class Memory(object):
             self.memory_probability[idx] = prior[priors_idx]
             priors_idx += 1
 
-    def __len__(self):
+    def size(self):
         return len(self.memory)

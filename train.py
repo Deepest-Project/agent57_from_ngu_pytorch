@@ -84,6 +84,9 @@ def main():
     for i in range(len(processes)):
         processes[i].start()
 
+    for p in processes:
+        p.join()
+
 
 if __name__ == "__main__":
     main()

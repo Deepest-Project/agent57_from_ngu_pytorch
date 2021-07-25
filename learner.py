@@ -21,7 +21,7 @@ class Learner:
 
     def run(self):
         while True:
-            if len(self.share_exp_mem) > config.batch_size:
+            if self.share_exp_mem.size() > config.batch_size:
                 batch, indexes, lengths = self.memory.sample(config.batch_size)
 
                 for _ in range(5):
@@ -31,7 +31,7 @@ class Learner:
                     if config.enable_ngu:
                         embedding_loss = self.embedding_model.train_model(batch)
 
-                self.memory.update_priority(indexes, td_error, lengths)
+                self.memory.update_priority(indexes, td_error.detach(), lengths)
 
                 self.steps += 1
                 if self.steps % config.update_target == 0:
