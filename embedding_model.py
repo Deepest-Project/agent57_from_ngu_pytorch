@@ -20,14 +20,14 @@ class EmbeddingModel(nn.Module):
 
         self.optimizer = optim.Adam(self.parameters(), lr=1e-5)
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2):  # for classifier. for training
         x1 = self.embedding(x1)
         x2 = self.embedding(x2)
         x = torch.cat([x1, x2], dim=2)
         x = self.last(x)
         return nn.Softmax(dim=2)(x)
 
-    def embedding(self, x):
+    def embedding(self, x):  # controllable state 뽑기
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         return x

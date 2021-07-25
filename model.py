@@ -32,12 +32,19 @@ class R2D2(nn.Module):
         val = self.fc_val(out)
         val = val.view(batch_size, sequence_length, 1)
 
-        qvalue = val + (adv - adv.mean(dim=2, keepdim=True))
+        qvalue = val + (adv - adv.mean(dim=-1, keepdim=True))
 
         return qvalue, hidden
 
     @classmethod
     def get_td_error(cls, online_net, target_net, batch, lengths, beta):
+        """
+        batch.shape = [B]
+        batch.state = [B, eps_len, *observation.shape]
+        batch.action
+        batch.reward
+        lengths.shape = [B, 1]
+        """
         def slice_burn_in(item):
             return item[:, config.burn_in_length:, :]
 
@@ -79,10 +86,11 @@ class R2D2(nn.Module):
 
         td_error = pred - target.detach()
 
+
         for idx, length in enumerate(lengths):
             td_error[idx][length - config.burn_in_length:][:] = 0
 
-        return td_error
+        return td_error  # [B, 1]
 
     @classmethod
     def train_model(cls, online_net, target_net, optimizer, batch, lengths, beta):
