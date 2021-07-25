@@ -37,7 +37,8 @@ class Actor:
     def __init__(self, actor_id, online_net, target_net, current_g_model, target_g_model, embedding_model, memory,
                  epsilon, lock):
 
-        self.env = gym.make('CartPole-v1') #gym.Maze(MazeEnvSample5x5())
+        # self.env = gym.make('CartPole-v1') #gym.Maze(MazeEnvSample5x5())
+        self.env = Maze(MazeEnvSample5x5())
         self.env.seed(config.random_seed)
         self.env.action_space.seed(config.random_seed)
 
@@ -109,7 +110,10 @@ class Actor:
                 if len(local_buffer.memory) == config.local_mini_batch:
                     batch, lengths = local_buffer.sample()
                     td_error = self.R2D2.get_td_error(self.online_net, self.target_net, batch, lengths, config.beta)
+
+                    self.lock.acquire()
                     self.memory.push(td_error, batch, lengths)
+                    self.lock.release()
 
                 sum_reward += env_reward
                 state = next_state

@@ -33,8 +33,8 @@ def main():
     epsilon_list = [config.eps ** (1 + config.alpha * num / (n_actors - 1)) for num in range(1, n_actors + 1)]
 
     # wandb.init(project="ngu-maze", config=config.__dict__)
-    # env = Maze(MazeEnvSample5x5())
-    env = gym.make('CartPole-v1')
+    env = Maze(MazeEnvSample5x5())
+    # env = gym.make('CartPole-v1')
     num_inputs = env.observation_space.shape[0]
     num_actions = env.action_space.n
     print("state size:", num_inputs)
@@ -62,7 +62,9 @@ def main():
     online_net.train()
     target_net.train()
 
-    memory = Memory(config.replay_memory_capacity)
+    mp.Manager().register('Memory', Memory)
+    manager = mp.Manager()
+    memory = manager.Memory(config.replay_memory_capacity)
 
     lock = mp.Lock()
 
