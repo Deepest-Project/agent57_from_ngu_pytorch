@@ -25,11 +25,10 @@ class Learner:
                 batch, indexes, lengths = self.memory.sample(config.batch_size)
 
                 for _ in range(5):
-                    # todo : 1. config.beta -> agent 별로. 2. gamma 추가
                     loss, td_error = R2D2_agent57.train_model(self.online_net, self.target_net, self.optimizer, batch,
-                                                           lengths, config.beta)
+                                                           lengths, batch.beta)
                     if config.enable_ngu:
-                        embedding_loss = self.embedding_model.train_model(batch)
+                        _ = self.embedding_model.train_model(batch)
 
                 self.memory.update_priority(indexes, td_error.detach(), lengths)
 

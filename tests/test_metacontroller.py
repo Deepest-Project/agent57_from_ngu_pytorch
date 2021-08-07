@@ -20,7 +20,8 @@ if __name__ == '__main__':
         self.beta_gamma = self.metacontroller.get_beta_gamma(current_episode)
         """
     gcm = MetaController()
-    actor = Actor(gcm)
-
-    for eps in episode:
-        actor.mc.reset(episode_reward)
+    gcm.reset_states(100)
+    # actor = Actor(gcm)
+    #
+    # for eps in episode:
+    #     actor.mc.reset(episode_reward)

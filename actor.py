@@ -104,7 +104,7 @@ class Actor:
 
                 mask = 0 if done else 1
 
-                local_buffer.push(state.detach(), next_state.detach(), action, augmented_reward, mask, [h.detach() for h in hidden], self.mc.gamma)
+                local_buffer.push(state.detach(), next_state.detach(), action, augmented_reward, mask, [h.detach() for h in hidden], self.mc.gamma, self.mc.beta)
                 hidden = new_hidden
 
                 # todo :get_td_error 할 때 config.beta가 아니라 beta 가변적으로 받을 수 있도록

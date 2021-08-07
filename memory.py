@@ -7,7 +7,7 @@ from config import config
 
 Transition = namedtuple(
     "Transition",
-    ("state", "next_state", "action", "reward", "mask", "step", "rnn_state"),
+    ("state", "next_state", "action", "reward", "mask", "step", "rnn_state", "beta"),
 )
 
 
@@ -18,7 +18,7 @@ class LocalBuffer(object):
         self.memory = []
         self.over_lapping_from_prev = []
 
-    def push(self, state, next_state, action, reward, mask, rnn_state, gamma):
+    def push(self, state, next_state, action, reward, mask, rnn_state, gamma, beta):
         self.n_step_memory.append([state, next_state, action, reward, mask, rnn_state])
         if len(self.n_step_memory) == config.n_step or mask == 0:
             [state, _, action, _, _, rnn_state] = self.n_step_memory[0]
@@ -30,10 +30,10 @@ class LocalBuffer(object):
                 sum_reward += reward + gamma * sum_reward
             reward = sum_reward
             step = len(self.n_step_memory)
-            self.push_local_memory(state, next_state, action, reward, mask, step, rnn_state)
+            self.push_local_memory(state, next_state, action, reward, mask, step, rnn_state, beta)
             self.n_step_memory = []
 
-    def push_local_memory(self, state, next_state, action, reward, mask, step, rnn_state):
+    def push_local_memory(self, state, next_state, action, reward, mask, step, rnn_state, beta):
         self.local_memory.append(
             Transition(
                 state,
@@ -43,6 +43,7 @@ class LocalBuffer(object):
                 mask,
                 step,
                 torch.stack(rnn_state).view(2, -1),
+                beta
             )
         )
         if (len(self.local_memory) + len(self.over_lapping_from_prev)) == config.sequence_length or mask == 0:
@@ -58,6 +59,7 @@ class LocalBuffer(object):
                         0,
                         0,
                         torch.zeros([2, 1, config.hidden_size]).view(2, -1),
+                        beta
                     )
                 )
             self.memory.append([self.local_memory, length])
@@ -77,7 +79,8 @@ class LocalBuffer(object):
             batch_mask,
             batch_step,
             batch_rnn_state,
-        ) = ([], [], [], [], [], [], [])
+            batch_beta
+        ) = ([], [], [], [], [], [], [], [])
         lengths = []
         for episode, length in episodes:
             batch = Transition(*zip(*episode))
@@ -89,6 +92,7 @@ class LocalBuffer(object):
             batch_mask.append(torch.Tensor(list(batch.mask)))
             batch_step.append(torch.Tensor(list(batch.step)))
             batch_rnn_state.append(torch.stack(list(batch.rnn_state)))
+            batch_beta.append(torch.stack(list(batch.beta)))
 
             lengths.append(length)
         self.memory = []
@@ -101,6 +105,7 @@ class LocalBuffer(object):
                 batch_mask,
                 batch_step,
                 batch_rnn_state,
+                batch_beta
             ),
             lengths,
         )
@@ -159,7 +164,8 @@ class Memory(object):
             batch_mask,
             batch_step,
             batch_rnn_state,
-        ) = ([], [], [], [], [], [], [])
+            batch_beta
+        ) = ([], [], [], [], [], [], [], [])
         for episode in episodes:
             batch_state.append(episode.state)
             batch_next_state.append(episode.next_state)
@@ -168,6 +174,7 @@ class Memory(object):
             batch_mask.append(episode.mask)
             batch_step.append(episode.step)
             batch_rnn_state.append(episode.rnn_state)
+            batch_beta.append(episode.beta)
 
         return (
             Transition(
@@ -178,6 +185,7 @@ class Memory(object):
                 batch_mask,
                 batch_step,
                 batch_rnn_state,
+                batch_beta
             ),
             indexes,
             lengths,

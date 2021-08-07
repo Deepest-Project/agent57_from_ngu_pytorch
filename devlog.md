@@ -25,4 +25,10 @@
 
 질문
 
-1. R2D2 와 G_function 의 역할은 어떻게 다르 
+
+### 구현할 것
+
+Agent57
+- Meta Controller (Beta, gamma)
+- Long trace
+- Separate network
