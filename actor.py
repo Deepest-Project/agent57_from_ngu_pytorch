@@ -7,7 +7,7 @@ import wandb
 from config import config
 from embedding_model import compute_intrinsic_reward
 from memory import LocalBuffer
-from model import R2D2
+from model import R2D2_agent57
 
 # todo : MetaController 구현
 class Maze(Wrapper):
@@ -82,7 +82,7 @@ class Actor:
                 episode_steps += 1
 
                 action, new_hidden = get_action(state, self.target_net, self.epsilon, self.env, hidden,
-                                                beta=config.beta)
+                                                beta=self.mc.beta)
                 print(f"self.actor_id={self.actor_id}, action={action}")
 
                 next_state, env_reward, done, _ = self.env.step(action)
@@ -99,7 +99,7 @@ class Actor:
                                                                     episode_steps=episode_steps, MA=MA)
 
                     episodic_memory.append(next_state_emb)
-                    beta = config.beta
+                    beta = self.mc.beta
                     augmented_reward = env_reward + beta * intrinsic_reward
 
                 mask = 0 if done else 1
@@ -110,7 +110,7 @@ class Actor:
                 # todo :get_td_error 할 때 config.beta가 아니라 beta 가변적으로 받을 수 있도록
                 if len(local_buffer.memory) == config.local_mini_batch:
                     batch, lengths = local_buffer.sample()
-                    td_error = R2D2.get_td_error(self.online_net, self.target_net, batch, lengths, config.beta)
+                    td_error = R2D2_agent57.get_td_error(self.online_net, self.target_net, batch, lengths, self.mc.beta)
 
                     self.lock.acquire()
                     self.memory.push(td_error.detach(), batch, lengths)

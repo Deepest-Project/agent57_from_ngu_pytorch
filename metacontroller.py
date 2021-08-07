@@ -12,11 +12,6 @@ from collections import deque
 class MetaController:
     def __init__(self, ucb_window_size=90, policy_num=32, ucb_beta=1, ucb_epsilon=0.5, training=False):
 
-        # use sliding-window UCB(UpperConfidenceBandit)
-
-        self.beta_list = self.create_beta_list()
-        self.gamma_list = self.create_gamma_list_agent57()
-
         self.training = training
         self.ucb_data = []  # For history storage
         # self.ucb_window_size = ucb_window_size
@@ -27,6 +22,10 @@ class MetaController:
 
         self.episode_count = 0
         self.ucb_data = deque([], maxlen=ucb_window_size)
+
+        # use sliding-window UCB(UpperConfidenceBandit)
+        self.beta_list = self.create_beta_list()
+        self.gamma_list = self.create_gamma_list_agent57()
         self.beta = self.beta_list[self.policy_index]
         self.gamma = self.gamma_list[self.policy_index]
 

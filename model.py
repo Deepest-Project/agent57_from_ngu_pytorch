@@ -113,14 +113,15 @@ class R2D2(nn.Module):
         return action.numpy()[0][0], hidden
 
 
-class R2D2_agent57:
+class R2D2_agent57(nn.Module):
     def __init__(self, num_inputs, num_outputs):
+        super().__init__()
         self.R2D2_int = R2D2(num_inputs, num_outputs)
         self.R2D2_ext = R2D2(num_inputs, num_outputs)
 
     def forward(self, x, hidden, beta):
-        q_int = self.R2D2_int.forward(x, hidden, beta)
-        q_ext = self.R2D2_ext.forward(x, hidden, beta)
+        q_int, _ = self.R2D2_int.forward(x, hidden, beta)
+        q_ext, _ = self.R2D2_ext.forward(x, hidden, beta)
         q_final = R2D2_agent57.h_function(beta * R2D2_agent57.h_inv(q_int) + R2D2_agent57.h_inv(q_ext))
         return q_final
 
@@ -130,7 +131,7 @@ class R2D2_agent57:
 
     @classmethod
     def h_inv(cls, z, epsilon=0.001):
-        return torch.sign(z)((torch.sqrt(1 + 4 * epsilon * (torch.abs(z) + 1 + epsilon)) - 1) / (2 * epsilon) - 1)
+        return torch.sign(z)*((torch.sqrt(1 + 4 * epsilon * (torch.abs(z) + 1 + epsilon)) - 1) / (2 * epsilon) - 1)
 
     @classmethod
     def get_td_error(cls, online_net, target_net, batch, lengths, beta, gamma):

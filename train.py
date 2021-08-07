@@ -43,6 +43,10 @@ def main():
     # value net
     online_net = R2D2_agent57(num_inputs, num_actions)
     target_net = R2D2_agent57(num_inputs, num_actions)
+    # online_net.R2D2_int.share_memory()
+    # online_net.R2D2_ext.share_memory()
+    # target_net.R2D2_int.share_memory()
+    # target_net.R2D2_ext.share_memory()
     online_net.share_memory()
     target_net.share_memory()
 
