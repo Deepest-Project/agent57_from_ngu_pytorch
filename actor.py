@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from gym import Wrapper
-from gym_maze.envs.maze_env import MazeEnvSample5x5
+# from gym_maze.envs.maze_env import MazeEnvSample5x5
 
 import wandb
 from config import config
@@ -37,8 +37,8 @@ class Actor:
     def __init__(self, actor_id, online_net, target_net, current_g_model, target_g_model, embedding_model, memory, meta_controller,
                  epsilon, lock):
 
-        # self.env = gym.make('CartPole-v1') #gym.Maze(MazeEnvSample5x5())
-        self.env = Maze(MazeEnvSample5x5())
+        self.env = gym.make('CartPole-v1') #gym.Maze(MazeEnvSample5x5())
+        # self.env = Maze(MazeEnvSample5x5())
         self.env.seed(config.random_seed)
         self.env.action_space.seed(config.random_seed)
 
@@ -55,14 +55,12 @@ class Actor:
 
     def run(self):
         steps = 0
-        loss = 0
         local_buffer = LocalBuffer()
-        sum_reward = 0
-        sum_augmented_reward = 0
-        sum_obs_set = 0
 
         for episode in range(30000):
             done = False
+            sum_reward = 0
+            sum_augmented_reward = 0
             state = self.env.reset()
             state = torch.Tensor(state).to(config.device)
 
@@ -79,7 +77,7 @@ class Actor:
 
             episode_steps = 0
             horizon = 100
-            MA = 0
+            MA = 0.1
 
             while not done:
                 steps += 1
@@ -125,6 +123,7 @@ class Actor:
                 state = next_state
                 sum_augmented_reward += augmented_reward
 
+            print(f"Ep {episode} / augmented sum reward : {sum_augmented_reward}, sum_reward : {sum_reward}")
             self.mc.reset_states(sum_reward)
 
             # if episode > 0 and episode % config.log_interval == 0:

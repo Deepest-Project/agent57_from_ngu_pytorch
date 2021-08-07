@@ -90,7 +90,7 @@ def compute_intrinsic_reward(
     dist = np.array(dist)
 
     # TODO: moving average
-    dist = dist / np.mean(dist)
+    dist = dist / (np.mean(dist) + kernel_epsilon)
 
     dist = np.max(dist - kernel_cluster_distance, 0)
     kernel = kernel_epsilon / (dist / MA + kernel_epsilon)

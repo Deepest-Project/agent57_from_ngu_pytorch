@@ -54,8 +54,8 @@ class LocalBuffer(object):
             while len(self.local_memory) < config.sequence_length:
                 self.local_memory.append(
                     Transition(
-                        torch.Tensor([0, 0]),
-                        torch.Tensor([0, 0]),
+                        torch.zeros_like(state),
+                        torch.zeros_like(state),
                         0,
                         0,
                         0,

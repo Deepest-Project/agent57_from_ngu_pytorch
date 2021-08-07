@@ -2,7 +2,8 @@ import numpy as np
 import torch
 import torch.multiprocessing as mp
 import wandb
-from gym_maze.envs.maze_env import MazeEnvSample5x5
+import gym
+# from gym_maze.envs.maze_env import MazeEnvSample5x5
 
 from actor import Actor, Maze
 from config import config
@@ -30,13 +31,14 @@ def main():
 
     np.random.seed(config.random_seed)
 
-    epsilon_list = [config.eps ** (1 + config.alpha * num / (n_actors - 1)) for num in range(1, n_actors + 1)]
+    epsilon_list = [config.eps ** (1 + config.alpha * num / (n_actors - 1)) for num in range(1, n_actors + 1)] if n_actors is not 1 else [config.eps]
 
     # wandb.init(project="ngu-maze", config=config.__dict__)
-    env = Maze(MazeEnvSample5x5())
-    # env = gym.make('CartPole-v1')
+    # env = Maze(MazeEnvSample5x5())
+    env = gym.make('CartPole-v1')
     num_inputs = env.observation_space.shape[0]
     num_actions = env.action_space.n
+    env.close()
     print("state size:", num_inputs)
     print("action size:", num_actions)
 

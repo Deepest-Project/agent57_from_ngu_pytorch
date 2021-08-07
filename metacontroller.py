@@ -26,7 +26,8 @@ class MetaController:
         # use sliding-window UCB(UpperConfidenceBandit)
         self.beta_list = self.create_beta_list()
         self.gamma_list = self.create_gamma_list_agent57()
-        self.beta = self.beta_list[self.policy_index]
+        # self.beta = self.beta_list[self.policy_index]
+        self.beta = 0#np.zeros([1])
         self.gamma = self.gamma_list[self.policy_index]
 
     def create_beta_list(self, max_beta=0.3):
@@ -96,7 +97,7 @@ class MetaController:
                     self.policy_index = np.argmax(k)
 
             self.episode_count += 1
-            self.beta, self.gamma = self.get_beta_gamma()
+            # self.beta, self.gamma = self.get_beta_gamma()
 
 
 # policy_num 이 뭐지 ? => actor num

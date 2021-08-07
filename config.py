@@ -36,7 +36,7 @@ config = Config(
     initial_exploration=1000,
     log_interval=10,
     update_target=10,
-    replay_memory_capacity=1000,
+    replay_memory_capacity=1000000,
     device="cpu",
     sequence_length=32,
     burn_in_length=4,
@@ -50,7 +50,7 @@ config = Config(
     hidden_size=16,
     L=5.0,
     beta=0.3,
-    n_actors=2,
+    n_actors=8,
     eps=0.4,
     alpha=8
 )
