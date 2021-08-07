@@ -34,7 +34,7 @@ def get_action(state, target_net, epsilon, env, hidden, beta):
 import gym
 
 class Actor:
-    def __init__(self, actor_id, online_net, target_net, current_g_model, target_g_model, embedding_model, memory,
+    def __init__(self, actor_id, online_net, target_net, current_g_model, target_g_model, embedding_model, memory, meta_controller,
                  epsilon, lock):
 
         # self.env = gym.make('CartPole-v1') #gym.Maze(MazeEnvSample5x5())
@@ -49,6 +49,7 @@ class Actor:
         self.target_g_model = target_g_model
         self.embedding_model = embedding_model
         self.memory = memory
+        self.mc = meta_controller
         self.epsilon = epsilon
         self.lock = lock
 
@@ -103,7 +104,7 @@ class Actor:
 
                 mask = 0 if done else 1
 
-                local_buffer.push(state.detach(), next_state.detach(), action, augmented_reward, mask, [h.detach() for h in hidden])
+                local_buffer.push(state.detach(), next_state.detach(), action, augmented_reward, mask, [h.detach() for h in hidden], self.mc.gamma)
                 hidden = new_hidden
 
                 # todo :get_td_error 할 때 config.beta가 아니라 beta 가변적으로 받을 수 있도록
@@ -118,6 +119,8 @@ class Actor:
                 sum_reward += env_reward
                 state = next_state
                 sum_augmented_reward += augmented_reward
+
+            self.mc.reset_states(sum_reward)
 
             # if episode > 0 and episode % config.log_interval == 0:
             #     mean_reward = sum_reward / config.log_interval

@@ -18,7 +18,7 @@ class LocalBuffer(object):
         self.memory = []
         self.over_lapping_from_prev = []
 
-    def push(self, state, next_state, action, reward, mask, rnn_state):
+    def push(self, state, next_state, action, reward, mask, rnn_state, gamma):
         self.n_step_memory.append([state, next_state, action, reward, mask, rnn_state])
         if len(self.n_step_memory) == config.n_step or mask == 0:
             [state, _, action, _, _, rnn_state] = self.n_step_memory[0]
@@ -27,7 +27,7 @@ class LocalBuffer(object):
             sum_reward = 0
             for t in reversed(range(len(self.n_step_memory))):
                 [_, _, _, reward, _, _] = self.n_step_memory[t]
-                sum_reward += reward + config.gamma * sum_reward
+                sum_reward += reward + gamma * sum_reward
             reward = sum_reward
             step = len(self.n_step_memory)
             self.push_local_memory(state, next_state, action, reward, mask, step, rnn_state)
