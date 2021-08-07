@@ -66,9 +66,13 @@ class Actor:
             state = self.env.reset()
             state = torch.Tensor(state).to(config.device)
 
-            hidden = (
+            hidden = ((
                 torch.Tensor().new_zeros(1, 1, config.hidden_size),
                 torch.Tensor().new_zeros(1, 1, config.hidden_size),
+            ), (
+                torch.Tensor().new_zeros(1, 1, config.hidden_size),
+                torch.Tensor().new_zeros(1, 1, config.hidden_size),
+            )
             )
 
             episodic_memory = [self.embedding_model.embedding(state)]
@@ -104,13 +108,14 @@ class Actor:
 
                 mask = 0 if done else 1
 
-                local_buffer.push(state.detach(), next_state.detach(), action, augmented_reward, mask, [h.detach() for h in hidden], self.mc.gamma, self.mc.beta)
+                local_buffer.push(state.detach(), next_state.detach(), action, augmented_reward, mask, [hid_or_cell.detach() for hid_or_cell in hidden[0]],
+                                  [hid_or_cell.detach() for hid_or_cell in hidden[1]], self.mc.gamma, self.mc.beta)
                 hidden = new_hidden
 
                 # todo :get_td_error 할 때 config.beta가 아니라 beta 가변적으로 받을 수 있도록
                 if len(local_buffer.memory) == config.local_mini_batch:
                     batch, lengths = local_buffer.sample()
-                    td_error = R2D2_agent57.get_td_error(self.online_net, self.target_net, batch, lengths, self.mc.beta)
+                    td_error = R2D2_agent57.get_td_error(self.online_net, self.target_net, batch, lengths)
 
                     self.lock.acquire()
                     self.memory.push(td_error.detach(), batch, lengths)

@@ -26,7 +26,7 @@ class Learner:
 
                 for _ in range(5):
                     loss, td_error = R2D2_agent57.train_model(self.online_net, self.target_net, self.optimizer, batch,
-                                                           lengths, batch.beta)
+                                                           lengths)
                     if config.enable_ngu:
                         _ = self.embedding_model.train_model(batch)
 

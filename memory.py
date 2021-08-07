@@ -7,7 +7,7 @@ from config import config
 
 Transition = namedtuple(
     "Transition",
-    ("state", "next_state", "action", "reward", "mask", "step", "rnn_state", "beta"),
+    ("state", "next_state", "action", "reward", "mask", "step", "rnn_state1", "rnn_state2", "gamma", "beta"),
 )
 
 
@@ -18,22 +18,22 @@ class LocalBuffer(object):
         self.memory = []
         self.over_lapping_from_prev = []
 
-    def push(self, state, next_state, action, reward, mask, rnn_state, gamma, beta):
-        self.n_step_memory.append([state, next_state, action, reward, mask, rnn_state])
+    def push(self, state, next_state, action, reward, mask, rnn_state1, rnn_state2, gamma, beta):
+        self.n_step_memory.append([state, next_state, action, reward, mask, rnn_state1, rnn_state2])
         if len(self.n_step_memory) == config.n_step or mask == 0:
-            [state, _, action, _, _, rnn_state] = self.n_step_memory[0]
-            [_, next_state, _, _, mask, _] = self.n_step_memory[-1]
+            [state, _, action, _, _, rnn_state1, rnn_state2] = self.n_step_memory[0]
+            [_, next_state, _, _, mask, _, _] = self.n_step_memory[-1]
 
             sum_reward = 0
             for t in reversed(range(len(self.n_step_memory))):
-                [_, _, _, reward, _, _] = self.n_step_memory[t]
+                [_, _, _, reward, _, _, _] = self.n_step_memory[t]
                 sum_reward += reward + gamma * sum_reward
             reward = sum_reward
             step = len(self.n_step_memory)
-            self.push_local_memory(state, next_state, action, reward, mask, step, rnn_state, beta)
+            self.push_local_memory(state, next_state, action, reward, mask, step, rnn_state1, rnn_state2, gamma, beta)
             self.n_step_memory = []
 
-    def push_local_memory(self, state, next_state, action, reward, mask, step, rnn_state, beta):
+    def push_local_memory(self, state, next_state, action, reward, mask, step, rnn_state1, rnn_state2, gamma, beta):
         self.local_memory.append(
             Transition(
                 state,
@@ -42,7 +42,9 @@ class LocalBuffer(object):
                 reward,
                 mask,
                 step,
-                torch.stack(rnn_state).view(2, -1),
+                torch.stack(rnn_state1).view(2, -1),
+                torch.stack(rnn_state2).view(2, -1),
+                gamma,
                 beta
             )
         )
@@ -59,6 +61,8 @@ class LocalBuffer(object):
                         0,
                         0,
                         torch.zeros([2, 1, config.hidden_size]).view(2, -1),
+                        torch.zeros([2, 1, config.hidden_size]).view(2, -1),
+                        gamma,
                         beta
                     )
                 )
@@ -71,16 +75,18 @@ class LocalBuffer(object):
 
     def sample(self):
         episodes = self.memory
-        (
-            batch_state,
+
+        (   batch_state,
             batch_next_state,
             batch_action,
             batch_reward,
             batch_mask,
             batch_step,
-            batch_rnn_state,
+            batch_rnn_state1,
+            batch_rnn_state2,
+            batch_gamma,
             batch_beta
-        ) = ([], [], [], [], [], [], [], [])
+        ) = ([], [], [], [], [], [], [], [], [], [])
         lengths = []
         for episode, length in episodes:
             batch = Transition(*zip(*episode))
@@ -91,8 +97,10 @@ class LocalBuffer(object):
             batch_reward.append(torch.Tensor(list(batch.reward)))
             batch_mask.append(torch.Tensor(list(batch.mask)))
             batch_step.append(torch.Tensor(list(batch.step)))
-            batch_rnn_state.append(torch.stack(list(batch.rnn_state)))
-            batch_beta.append(torch.stack(list(batch.beta)))
+            batch_rnn_state1.append(torch.stack(list(batch.rnn_state1)))
+            batch_rnn_state2.append(torch.stack(list(batch.rnn_state2)))
+            batch_gamma.append(torch.stack(list(torch.tensor(batch.gamma))))
+            batch_beta.append(torch.stack(list(torch.tensor(batch.beta))))
 
             lengths.append(length)
         self.memory = []
@@ -104,7 +112,9 @@ class LocalBuffer(object):
                 batch_reward,
                 batch_mask,
                 batch_step,
-                batch_rnn_state,
+                batch_rnn_state1,
+                batch_rnn_state2,
+                batch_gamma,
                 batch_beta
             ),
             lengths,
@@ -131,7 +141,7 @@ class Memory(object):
         # batch.state[local_mini_batch, config.sequence_length, item]
         prior = self.td_error_to_priority(td_error, lengths)
 
-        for i in range(len(batch)):
+        for i in range(len(batch.gamma)):
             self.memory.append(
                 [
                     Transition(
@@ -141,7 +151,10 @@ class Memory(object):
                         batch.reward[i],
                         batch.mask[i],
                         batch.step[i],
-                        batch.rnn_state[i],
+                        batch.rnn_state1[i],
+                        batch.rnn_state2[i],
+                        batch.gamma[i],
+                        batch.beta[i],
                     ),
                     lengths[i],
                 ]
@@ -163,9 +176,11 @@ class Memory(object):
             batch_reward,
             batch_mask,
             batch_step,
-            batch_rnn_state,
+            batch_rnn_state1,
+            batch_rnn_state2,
+            batch_gamma,
             batch_beta
-        ) = ([], [], [], [], [], [], [], [])
+        ) = ([], [], [], [], [], [], [], [], [], [])
         for episode in episodes:
             batch_state.append(episode.state)
             batch_next_state.append(episode.next_state)
@@ -173,7 +188,9 @@ class Memory(object):
             batch_reward.append(episode.reward)
             batch_mask.append(episode.mask)
             batch_step.append(episode.step)
-            batch_rnn_state.append(episode.rnn_state)
+            batch_rnn_state1.append(episode.rnn_state1)
+            batch_rnn_state2.append(episode.rnn_state2)
+            batch_gamma.append(episode.gamma)
             batch_beta.append(episode.beta)
 
         return (
@@ -184,7 +201,9 @@ class Memory(object):
                 batch_reward,
                 batch_mask,
                 batch_step,
-                batch_rnn_state,
+                batch_rnn_state1,
+                batch_rnn_state2,
+                batch_gamma,
                 batch_beta
             ),
             indexes,

@@ -19,14 +19,20 @@ class R2D2(nn.Module):
 
     def forward(self, x, hidden, beta):
         # x [batch_size,s equence_length, num_inputs]
+        if not isinstance(beta , torch.Tensor):
+            beta = torch.tensor(beta, dtype=torch.float, device=self.device)
+        beta = beta.float()
+
         batch_size = x.size()[0]
         sequence_length = x.size()[1]
         out, hidden = self.lstm(x, hidden)  # out = [batch_size, config.hidden_size]
 
         out = F.relu(self.fc(out))  # ( batch_size, config.hidden_size)
-
-        # out = torch.cat([out, torch.tensor(beta, dtype=torch.float32, device=self.device).reshape([out, 1, 1])], dim=2)
-        out = torch.cat([out, torch.ones([*out.shape[:-1], 1]) * beta], dim=-1)
+        try:
+            out = torch.cat([out, beta.reshape([out.shape[0], out.shape[1], 1])], dim=2)
+        except:
+            raise Exception('sdf')
+        # out = torch.cat([out, torch.ones([*out.shape[:-1], 1]) * beta.float()], dim=-1)
         adv = self.fc_adv(out)
         adv = adv.view(batch_size, sequence_length, self.num_outputs)
         val = self.fc_val(out)
@@ -37,7 +43,7 @@ class R2D2(nn.Module):
         return qvalue, hidden
 
     @classmethod
-    def get_td_error(cls, online_net, target_net, batch, lengths, beta, gamma):
+    def get_td_error(cls, online_net, target_net, batch, lengths, gamma, beta):
         """
         batch.shape = [B]
         batch.state = [B, eps_len, *observation.shape]
@@ -116,14 +122,19 @@ class R2D2(nn.Module):
 class R2D2_agent57(nn.Module):
     def __init__(self, num_inputs, num_outputs):
         super().__init__()
+        self.num_inputs = num_inputs
+        self.num_outputs = num_outputs
         self.R2D2_int = R2D2(num_inputs, num_outputs)
         self.R2D2_ext = R2D2(num_inputs, num_outputs)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     def forward(self, x, hidden, beta):
-        q_int, _ = self.R2D2_int.forward(x, hidden, beta)
-        q_ext, _ = self.R2D2_ext.forward(x, hidden, beta)
+        hidden1, hidden2 = hidden
+        q_int, hidden1 = self.R2D2_int.forward(x, hidden1, beta)
+        q_ext, hidden2 = self.R2D2_ext.forward(x, hidden2, beta)
         q_final = R2D2_agent57.h_function(beta * R2D2_agent57.h_inv(q_int) + R2D2_agent57.h_inv(q_ext))
-        return q_final
+
+        return q_final, (hidden1, hidden2)
 
     @classmethod
     def h_function(cls, z, epsilon=0.001):
@@ -134,7 +145,7 @@ class R2D2_agent57(nn.Module):
         return torch.sign(z)*((torch.sqrt(1 + 4 * epsilon * (torch.abs(z) + 1 + epsilon)) - 1) / (2 * epsilon) - 1)
 
     @classmethod
-    def get_td_error(cls, online_net, target_net, batch, lengths, beta, gamma):
+    def get_td_error(cls, online_net, target_net, batch, lengths):
         """
         batch.shape = [B]
         batch.state = [B, eps_len, *observation.shape]
@@ -153,20 +164,32 @@ class R2D2_agent57(nn.Module):
         rewards = torch.stack(batch.reward).view(batch_size, config.sequence_length, -1)
         masks = torch.stack(batch.mask).view(batch_size, config.sequence_length, -1)
         steps = torch.stack(batch.step).view(batch_size, config.sequence_length, -1)
-        rnn_state = torch.stack(batch.rnn_state).view(batch_size, config.sequence_length, 2, -1)
+        rnn_state1 = torch.stack(batch.rnn_state1).view(batch_size, config.sequence_length, 2, -1)
+        rnn_state2 = torch.stack(batch.rnn_state2).view(batch_size, config.sequence_length, 2, -1)
+        gamma = torch.stack(batch.gamma).view(batch_size, config.sequence_length, -1)
+        beta = torch.stack(batch.beta).view(batch_size, config.sequence_length, -1)
 
-        [h0, c0] = rnn_state[:, 0, :, :].transpose(0, 1)
+        [h0, c0] = rnn_state1[:, 0, :, :].transpose(0, 1)
         h0 = h0.unsqueeze(0).detach()
         c0 = c0.unsqueeze(0).detach()
 
-        [h1, c1] = rnn_state[:, 1, :, :].transpose(0, 1)
+        [h1, c1] = rnn_state1[:, 1, :, :].transpose(0, 1)
         h1 = h1.unsqueeze(0).detach()
         c1 = c1.unsqueeze(0).detach()
 
-        pred, _ = online_net(states, (h0, c0), beta)
-        next_pred, _ = target_net(next_states, (h1, c1), beta)
 
-        next_pred_online, _ = online_net(next_states, (h1, c1), beta)
+        [h0_2, c0_2] = rnn_state2[:, 0, :, :].transpose(0, 1)
+        h0_2 = h0_2.unsqueeze(0).detach()
+        c0_2 = c0_2.unsqueeze(0).detach()
+
+        [h1_2, c1_2] = rnn_state2[:, 1, :, :].transpose(0, 1)
+        h1_2 = h1_2.unsqueeze(0).detach()
+        c1_2 = c1_2.unsqueeze(0).detach()
+
+        pred, _ = online_net(states, ((h0, c0), (h0_2, c0_2)), beta)
+        next_pred, _ = target_net(next_states, ((h1, c1), (h1_2, c1_2)), beta)
+
+        next_pred_online, _ = online_net(next_states, ((h1, c1), (h1_2, c1_2)), beta)
 
         pred = slice_burn_in(pred)
         next_pred = slice_burn_in(next_pred)
@@ -175,12 +198,14 @@ class R2D2_agent57(nn.Module):
         masks = slice_burn_in(masks)
         steps = slice_burn_in(steps)
         next_pred_online = slice_burn_in(next_pred_online)
+        beta = slice_burn_in(beta)
+        gamma = slice_burn_in(gamma)
 
         pred = pred.gather(2, actions)
 
         _, next_pred_online_action = next_pred_online.max(2)
 
-        target = rewards + masks * pow(gamma, steps) * next_pred.gather(2, next_pred_online_action.unsqueeze(2))
+        target = rewards + masks * torch.pow(gamma, steps) * next_pred.gather(2, next_pred_online_action.unsqueeze(2))
 
         td_error = pred - target.detach()
 
@@ -190,8 +215,8 @@ class R2D2_agent57(nn.Module):
         return td_error  # [B, 1]
 
     @classmethod
-    def train_model(cls, online_net, target_net, optimizer, batch, lengths, beta, gamma):
-        td_error = cls.get_td_error(online_net, target_net, batch, lengths, beta, gamma)
+    def train_model(cls, online_net, target_net, optimizer, batch, lengths):
+        td_error = cls.get_td_error(online_net, target_net, batch, lengths)
 
         loss = pow(td_error, 2).mean()
 
@@ -204,7 +229,7 @@ class R2D2_agent57(nn.Module):
     def get_action(self, state, hidden, beta):
         state = state.unsqueeze(0).unsqueeze(0)
 
-        qvalue, hidden = self.forward(state, hidden, beta)
+        qvalue, (hidden1, hidden2) = self.forward(state, hidden, beta)
 
         _, action = torch.max(qvalue, 2)
-        return action.numpy()[0][0], hidden
+        return action.numpy()[0][0], (hidden1, hidden2)
