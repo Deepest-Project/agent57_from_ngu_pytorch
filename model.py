@@ -37,7 +37,7 @@ class R2D2(nn.Module):
         return qvalue, hidden
 
     @classmethod
-    def get_td_error(cls, online_net, target_net, batch, lengths, beta):
+    def get_td_error(cls, online_net, target_net, batch, lengths, beta, gamma):
         """
         batch.shape = [B]
         batch.state = [B, eps_len, *observation.shape]
@@ -83,7 +83,7 @@ class R2D2(nn.Module):
 
         _, next_pred_online_action = next_pred_online.max(2)
 
-        target = rewards + masks * pow(config.gamma, steps) * next_pred.gather(2, next_pred_online_action.unsqueeze(2))
+        target = rewards + masks * pow(gamma, steps) * next_pred.gather(2, next_pred_online_action.unsqueeze(2))
 
         td_error = pred - target.detach()
 
@@ -133,7 +133,7 @@ class R2D2_agent57:
         return torch.sign(z)((torch.sqrt(1 + 4 * epsilon * (torch.abs(z) + 1 + epsilon)) - 1) / (2 * epsilon) - 1)
 
     @classmethod
-    def get_td_error(cls, online_net, target_net, batch, lengths, beta):
+    def get_td_error(cls, online_net, target_net, batch, lengths, beta, gamma):
         """
         batch.shape = [B]
         batch.state = [B, eps_len, *observation.shape]
@@ -179,7 +179,7 @@ class R2D2_agent57:
 
         _, next_pred_online_action = next_pred_online.max(2)
 
-        target = rewards + masks * pow(config.gamma, steps) * next_pred.gather(2, next_pred_online_action.unsqueeze(2))
+        target = rewards + masks * pow(gamma, steps) * next_pred.gather(2, next_pred_online_action.unsqueeze(2))
 
         td_error = pred - target.detach()
 
@@ -189,8 +189,8 @@ class R2D2_agent57:
         return td_error  # [B, 1]
 
     @classmethod
-    def train_model(cls, online_net, target_net, optimizer, batch, lengths, beta):
-        td_error = cls.get_td_error(online_net, target_net, batch, lengths, beta)
+    def train_model(cls, online_net, target_net, optimizer, batch, lengths, beta, gamma):
+        td_error = cls.get_td_error(online_net, target_net, batch, lengths, beta, gamma)
 
         loss = pow(td_error, 2).mean()
 

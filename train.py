@@ -9,12 +9,13 @@ from config import config
 from embedding_model import EmbeddingModel, GFunction
 from learner import Learner
 from memory import Memory
-from model import R2D2
-
+from model import R2D2_agent57
+from metacontroller import MetaController
 
 def actor_process(actor_id, online_net, target_net, current_g_model, target_g_model, embedding_model, memory,
                  epsilon, lock):
-    actor = Actor(actor_id, online_net, target_net, current_g_model, target_g_model, embedding_model, memory,
+    meta_controller = MetaController()
+    actor = Actor(actor_id, online_net, target_net, current_g_model, target_g_model, embedding_model, memory, meta_controller,
                  epsilon, lock)
     actor.run()
 
@@ -23,7 +24,6 @@ def learner_process(online_net, target_net, current_g_model, target_g_model, emb
     leaner = Learner(online_net, target_net, current_g_model, target_g_model, embedding_model, memory, lock)
     leaner.run()
 
-import gym
 def main():
     n_actors = config.n_actors
     torch.manual_seed(config.random_seed)
@@ -41,8 +41,8 @@ def main():
     print("action size:", num_actions)
 
     # value net
-    online_net = R2D2(num_inputs, num_actions)
-    target_net = R2D2(num_inputs, num_actions)
+    online_net = R2D2_agent57(num_inputs, num_actions)
+    target_net = R2D2_agent57(num_inputs, num_actions)
     online_net.share_memory()
     target_net.share_memory()
 
