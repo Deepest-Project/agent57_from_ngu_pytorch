@@ -85,7 +85,7 @@ class Actor:
 
                 action, new_hidden = get_action(state, self.target_net, self.epsilon, self.env, hidden,
                                                 beta=self.mc.beta)
-                print(f"self.actor_id={self.actor_id}, action={action}")
+                # print(f"self.actor_id={self.actor_id}, action={action}")
 
                 next_state, env_reward, done, _ = self.env.step(action)
                 next_state = torch.Tensor(next_state)
@@ -116,6 +116,7 @@ class Actor:
                     td_error = R2D2_agent57.get_td_error(self.online_net, self.target_net, batch, lengths)
 
                     self.lock.acquire()
+                    print(f"td_error={td_error}")
                     self.memory.push(td_error.detach(), batch, lengths)
                     self.lock.release()
 

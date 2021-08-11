@@ -32,7 +32,7 @@ def main():
     np.random.seed(config.random_seed)
 
     epsilon_list = [config.eps ** (1 + config.alpha * num / (n_actors - 1)) for num in range(1, n_actors + 1)] if n_actors is not 1 else [config.eps]
-
+    # epsilon_list = [0.7 for _ in range(n_actors)]
     # wandb.init(project="ngu-maze", config=config.__dict__)
     # env = Maze(MazeEnvSample5x5())
     env = gym.make('CartPole-v1')

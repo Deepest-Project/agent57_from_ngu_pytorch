@@ -12,9 +12,11 @@ class R2D2(nn.Module):
         self.num_outputs = num_outputs
 
         self.lstm = nn.LSTM(input_size=num_inputs, hidden_size=config.hidden_size, batch_first=True)
-        self.fc = nn.Linear(config.hidden_size, 128)
-        self.fc_adv = nn.Linear(128 + 1, num_outputs)
-        self.fc_val = nn.Linear(128 + 1, 1)
+        # self.fc = nn.Linear(config.hidden_size, 128)
+        # self.fc_adv = nn.Linear(128 + 1, num_outputs)
+        # self.fc_val = nn.Linear(128 + 1, 1)
+        self.fc_adv = nn.Linear(config.hidden_size + 1, num_outputs)
+        self.fc_val = nn.Linear(config.hidden_size + 1, 1)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     def forward(self, x, hidden, beta):
@@ -27,7 +29,7 @@ class R2D2(nn.Module):
         sequence_length = x.size()[1]
         out, hidden = self.lstm(x, hidden)  # out = [batch_size, config.hidden_size]
 
-        out = F.relu(self.fc(out))  # ( batch_size, config.hidden_size)
+        # out = F.relu(self.fc(out))  # ( batch_size, config.hidden_size)
         try:
             out = torch.cat([out, beta.reshape([out.shape[0], out.shape[1], 1])], dim=2)
         except:
@@ -191,15 +193,15 @@ class R2D2_agent57(nn.Module):
 
         next_pred_online, _ = online_net(next_states, ((h1, c1), (h1_2, c1_2)), beta)
 
-        pred = slice_burn_in(pred)
-        next_pred = slice_burn_in(next_pred)
-        actions = slice_burn_in(actions)
-        rewards = slice_burn_in(rewards)
-        masks = slice_burn_in(masks)
-        steps = slice_burn_in(steps)
-        next_pred_online = slice_burn_in(next_pred_online)
-        beta = slice_burn_in(beta)
-        gamma = slice_burn_in(gamma)
+        # pred = slice_burn_in(pred)
+        # next_pred = slice_burn_in(next_pred)
+        # actions = slice_burn_in(actions)
+        # rewards = slice_burn_in(rewards)
+        # masks = slice_burn_in(masks)
+        # steps = slice_burn_in(steps)
+        # next_pred_online = slice_burn_in(next_pred_online)
+        # beta = slice_burn_in(beta)
+        # gamma = slice_burn_in(gamma)
 
         pred = pred.gather(2, actions)
 
@@ -207,7 +209,7 @@ class R2D2_agent57(nn.Module):
 
         target = rewards + masks * torch.pow(gamma, steps) * next_pred.gather(2, next_pred_online_action.unsqueeze(2))
 
-        td_error = pred - target.detach()
+        td_error = torch.square(pred - target.detach())
 
         for idx, length in enumerate(lengths):
             td_error[idx][length - config.burn_in_length:][:] = 0
